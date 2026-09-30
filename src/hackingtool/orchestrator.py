@@ -41,7 +41,8 @@ def run_pipeline(e: Engagement, pipeline_name: str = "recon") -> list[findings_m
         stdin = "\n".join(e.targets if step["input"] == "targets" else forward)
         try:
             proc = subprocess.run([tool, *step["args"]], input=stdin,
-                                  capture_output=True, text=True, timeout=STEP_TIMEOUT)
+                                  capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace", timeout=STEP_TIMEOUT)
             raw = proc.stdout
             if proc.returncode != 0:
                 tail = (proc.stderr or "").strip().splitlines()[-3:]

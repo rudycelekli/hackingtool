@@ -19,7 +19,7 @@ def test_run_pipeline_wires_stdin_and_normalizes(tmp_path, monkeypatch):
     monkeypatch.setattr(orchestrator.shutil, "which", lambda t: "/usr/bin/" + t)
 
     calls = {}
-    def fake_run(cmd, input=None, capture_output=None, text=None, timeout=None):
+    def fake_run(cmd, input=None, capture_output=None, text=None, timeout=None, encoding=None, errors=None):
         tool = cmd[0]
         calls[tool] = input  # capture what each step received on stdin
         out = {
@@ -55,7 +55,7 @@ def test_scope_out_host_not_forwarded(tmp_path, monkeypatch):
                           scope_in=["*.example.com"], scope_out=["admin.example.com"])
     monkeypatch.setattr(orchestrator.shutil, "which", lambda t: "/usr/bin/" + t)
     captured = {}
-    def fake_run(cmd, input=None, capture_output=None, text=None, timeout=None):
+    def fake_run(cmd, input=None, capture_output=None, text=None, timeout=None, encoding=None, errors=None):
         tool = cmd[0]
         captured[tool] = input
         out = {
