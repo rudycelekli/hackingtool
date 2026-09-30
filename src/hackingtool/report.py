@@ -13,14 +13,16 @@ def _cell(s: str) -> str:
     return str(s).replace("|", "\\|").replace("\n", " ")
 
 
-def render_report(e: Engagement) -> str:
+def render_report(e: Engagement, findings: list[Finding] | None = None) -> str:
     """Deterministic facts-table report as a Markdown string (no file write).
 
     The single source of report truth: findings/severities/targets/tools come
     straight from ``findings.json``. AI4 reuses this verbatim as its verified
-    appendix so the model never has to emit the facts.
+    appendix so the model never has to emit the facts. Callers may supply the
+    exact snapshot used for a narrative; otherwise the current file is loaded.
     """
-    findings = load_findings(e.findings_file)
+    if findings is None:
+        findings = load_findings(e.findings_file)
     lines: list[str] = [f"# Engagement: {e.name}", ""]
     lines.append(f"- **Targets:** {', '.join(e.targets) or '(none)'}")
     lines.append(f"- **Scope in:** {', '.join(e.scope_in) or '(none)'}")
