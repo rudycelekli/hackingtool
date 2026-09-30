@@ -805,11 +805,11 @@ def main():
     from hackingtool import prompt
     prompt.FORCE_CLASSIC = force_classic
 
-    if argv and (argv[0] in ("-h", "--help") or any(a.startswith("--") for a in argv)):
-        args = _build_arg_parser().parse_args(argv)   # argparse prints help and exits on -h/--help
+    if argv:
+        parser = _build_arg_parser()
+        args = parser.parse_args(argv)   # argparse prints help and exits on -h/--help
         if not args.engagement:
-            console.print("[bold red]--engagement is required in headless mode.[/bold red]")
-            return
+            parser.error("--engagement is required in headless mode")
         _run_headless(args)
         return
     try:
