@@ -58,7 +58,7 @@ def _configured_theme() -> str:
     config-module import cycle). Unknown/missing → 'magenta'."""
     try:
         import json
-        name = json.loads(USER_CONFIG_FILE.read_text()).get("theme")
+        name = json.loads(USER_CONFIG_FILE.read_text(encoding="utf-8")).get("theme")
     except (OSError, ValueError):
         name = None
     return name if name in _PALETTES else "magenta"

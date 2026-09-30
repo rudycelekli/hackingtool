@@ -176,7 +176,7 @@ def _load_file(path: Path, inert: bool = False):
     """Return (Category | None, overlays list). A file may add new tools, overlay
     existing ones by title, or both. ``inert`` strips executable keys (see
     _EXECUTABLE_KEYS) — used for user-supplied catalogs."""
-    data = yaml.safe_load(path.read_text()) or {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     header = data.get("category")
     entries = [e for e in (data.get("tools") or []) if isinstance(e, dict)]
     if inert:

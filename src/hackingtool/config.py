@@ -31,7 +31,7 @@ def load() -> dict[str, Any]:
     """Load config from disk, merging with defaults for any missing keys."""
     if USER_CONFIG_FILE.exists():
         try:
-            on_disk = json.loads(USER_CONFIG_FILE.read_text())
+            on_disk = json.loads(USER_CONFIG_FILE.read_text(encoding="utf-8"))
             return {**DEFAULT_CONFIG, **on_disk}
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("Config file unreadable (%s), using defaults.", exc)
@@ -41,7 +41,7 @@ def load() -> dict[str, Any]:
 def save(cfg: dict[str, Any]) -> None:
     """Write config to disk, creating parent directories if needed."""
     USER_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    USER_CONFIG_FILE.write_text(json.dumps(cfg, indent=2, sort_keys=True))
+    USER_CONFIG_FILE.write_text(json.dumps(cfg, indent=2, sort_keys=True), encoding="utf-8")
 
 
 _ENV_TEMPLATE = """\
@@ -74,7 +74,7 @@ def ensure_user_files() -> None:
         save(dict(DEFAULT_CONFIG))
     env_file = USER_CONFIG_FILE.parent / ".env"
     if not env_file.exists():
-        env_file.write_text(_ENV_TEMPLATE)
+        env_file.write_text(_ENV_TEMPLATE, encoding="utf-8")
         try:
             env_file.chmod(0o600)      # secrets file — owner-only
         except OSError:
@@ -212,7 +212,7 @@ def set_ai_key(value: str) -> tuple[bool, str]:
         return False, "API key can't contain newlines."
     env_file = USER_CONFIG_FILE.parent / ".env"
     env_file.parent.mkdir(parents=True, exist_ok=True)
-    lines = env_file.read_text().splitlines() if env_file.exists() else _ENV_TEMPLATE.splitlines()
+    lines = env_file.read_text(encoding="utf-8").splitlines() if env_file.exists() else _ENV_TEMPLATE.splitlines()
     new_line = f"HACKINGTOOL_AI_KEY={value}" if value else "# HACKINGTOOL_AI_KEY=sk-ant-your-key-here"
     for i, line in enumerate(lines):
         if line.lstrip("# ").startswith("HACKINGTOOL_AI_KEY="):
@@ -220,7 +220,7 @@ def set_ai_key(value: str) -> tuple[bool, str]:
             break
     else:
         lines.append(new_line)
-    env_file.write_text("\n".join(lines) + "\n")
+    env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
     try:
         env_file.chmod(0o600)                 # secrets file — owner-only
     except OSError:
