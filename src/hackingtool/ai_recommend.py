@@ -105,7 +105,13 @@ def test_connection() -> tuple[bool, str]:
     provider = config.ai_provider()
     use_byo = provider == "openai-compat" or (
         provider == "auto" and bool(config.ai_base_url()) and bool(config.ai_key()))
-    return _probe_byo() if use_byo else _probe_ollama()
+    if not use_byo:
+        return _probe_ollama()
+    remote_ok, remote_detail = _probe_byo()
+    if remote_ok or provider == "openai-compat":
+        return remote_ok, remote_detail
+    local_ok, local_detail = _probe_ollama()
+    return local_ok, f"{remote_detail}; local fallback: {local_detail}"
 
 
 def _probe_byo() -> tuple[bool, str]:
