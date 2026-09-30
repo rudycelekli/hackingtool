@@ -409,14 +409,15 @@ def _tool_table(matches, title):
     for i, (tool, cat) in enumerate(matches, start=1):
         status = "[green]✔[/green]" if tool.is_installed else "[dim]✘[/dim]"
         table.add_row(str(i), status, tool.TITLE, cat)
-    table.add_row("99", "", "Back to main menu", "")
+    table.add_row("b", "", "Back to main menu", "")
     console.print(table)
 
 
 def _pick_tool(matches):
-    """Prompt for a number and open that tool; ignore blank/99/invalid."""
+    """Open a numbered result; b/back returns, and 99 remains a legacy
+    back shortcut only when no result has that number."""
     raw = ask("[bold cyan]>[/bold cyan]", default="").strip()
-    if not raw or raw == "99":
+    if not raw or raw.lower() in ("b", "back") or (raw == "99" and len(matches) < 99):
         return
     try:
         idx = int(raw)
@@ -583,7 +584,7 @@ def search_tools(query: str | None = None):
         desc = (tool.DESCRIPTION or "—").splitlines()[0]
         table.add_row(str(i), tool.TITLE, cat, desc)
 
-    table.add_row("99", "Back to main menu", "", "")
+    table.add_row("b", "Back to main menu", "", "")
     console.print(table)
 
     _pick_tool(matches)
