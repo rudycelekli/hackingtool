@@ -124,6 +124,9 @@ def dispatch(raw, ctx):
 
     if raw.startswith("/"):
         parts = raw[1:].split(maxsplit=1)
+        if not parts:
+            cli.show_help()
+            return CONTINUE
         cmd = parts[0].lower()
         arg = parts[1].strip() if len(parts) > 1 else ""
         if cmd in ("quit", "q", "exit"):
