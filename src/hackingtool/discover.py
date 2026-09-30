@@ -144,10 +144,14 @@ def _refuse(need: str) -> str:
 
 
 def _parse_ts(value: str) -> datetime | None:
+    if not isinstance(value, str):
+        return None
     try:
-        return datetime.fromisoformat((value or "").replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    # GitHub timestamps use UTC; older/local cache entries may omit the offset.
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
 
 
 def _months(since: datetime | None, now: datetime) -> float:
@@ -210,8 +214,10 @@ def _score(repo: Repo, now: datetime, rewrite: Rewrite | None = None) -> float:
     score = log10(max(repo.stars, 1)) + 0.5 * log10(max(repo.forks, 1))
     why.append(f"{repo.stars}★")
 
-    age_mo = _months(_parse_ts(repo.created_at), now)
-    stale_mo = _months(_parse_ts(repo.pushed_at), now)
+    created = _parse_ts(repo.created_at)
+    pushed = _parse_ts(repo.pushed_at)
+    age_mo = _months(created, now)
+    stale_mo = _months(pushed, now)
 
     if repo.license:
         score += 1.0
@@ -222,7 +228,9 @@ def _score(repo: Repo, now: datetime, rewrite: Rewrite | None = None) -> float:
         why.append("trusted author (ships in our catalog)")
     if age_mo >= 12:
         score += 1.0
-    if stale_mo <= 12:
+    if pushed is None:
+        why.append("activity unknown")
+    elif stale_mo <= 12:
         score += 1.0
         why.append("active")
     else:
@@ -236,7 +244,7 @@ def _score(repo: Repo, now: datetime, rewrite: Rewrite | None = None) -> float:
     if _is_docs_repo(repo):
         score -= 3.0
         why.append("docs/list repo")
-    if age_mo < 3:
+    if created is not None and age_mo < 3:
         score -= 2.0
         why.append("brand new")
 
