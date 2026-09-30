@@ -1,5 +1,7 @@
 """First-class engagement + persisted workspace. Deterministic, code-owned."""
 import json
+import os
+import tempfile
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from fnmatch import fnmatch
@@ -86,7 +88,14 @@ def create(name: str, targets: list[str] | None = None,
     scope_in = scope_in if scope_in is not None else list(targets)
     e = Engagement(name=name, created=_now(), scope_in=scope_in,
                    scope_out=scope_out or [], targets=targets, runs=[])
-    e.save()
+    # Publish only complete JSON, and never replace an existing engagement.
+    # A same-directory hard link atomically fails if another creator won.
+    text = json.dumps(asdict(e), indent=2)
+    e.workspace.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".create-", dir=e.workspace) as staging:
+        staged = Path(staging) / "engagement.json"
+        staged.write_text(text)
+        os.link(staged, e.workspace / "engagement.json")
     return e
 
 
