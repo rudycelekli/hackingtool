@@ -14,6 +14,10 @@ import subprocess
 SESSION = "hackingtool"
 
 
+class SessionError(RuntimeError):
+    """tmux did not create or prepare the requested background window."""
+
+
 def available() -> bool:
     """True if the tmux binary is on PATH."""
     return shutil.which("tmux") is not None
@@ -37,7 +41,7 @@ def _run(args: list[str], capture: bool = False) -> subprocess.CompletedProcess:
             ["tmux", *args], capture_output=capture, text=True, check=False,
         )
     except FileNotFoundError:
-        return subprocess.CompletedProcess(["tmux", *args], 1, "", "")
+        return subprocess.CompletedProcess(["tmux", *args], 1, "", "tmux executable not found")
 
 
 def _has_session() -> bool:
@@ -81,18 +85,28 @@ def run(label: str, cwd: str, command: str | None = None,
 
     Creates the detached session on first use, else adds a window. Optionally
     types a one-line ``banner`` (as a ``# comment``) then ``command`` into the
-    pane's shell. Returns the resolved (deduplicated) window label.
+    pane's shell. Returns the resolved (deduplicated) window label on success;
+    raises SessionError if creation or input delivery fails.
     """
     label = _unique_label(label)
     if _has_session():
-        _run(["new-window", "-t", SESSION, "-n", label, "-c", cwd])
+        created = _run(["new-window", "-t", SESSION, "-n", label, "-c", cwd], capture=True)
     else:
-        _run(["new-session", "-d", "-s", SESSION, "-n", label, "-c", cwd])
+        created = _run(["new-session", "-d", "-s", SESSION, "-n", label, "-c", cwd], capture=True)
+    if created.returncode != 0:
+        raise SessionError(f"Could not create background window '{label}': "
+                           f"{(created.stderr or '').strip() or 'tmux failed'}")
     target = f"{SESSION}:{label}"
     if banner:
-        _run(["send-keys", "-t", target, f"# {banner}", "Enter"])
+        sent = _run(["send-keys", "-t", target, f"# {banner}", "Enter"], capture=True)
+        if sent.returncode != 0:
+            raise SessionError(f"Could not prepare background window '{label}': "
+                               f"{(sent.stderr or '').strip() or 'tmux failed'}")
     if command:
-        _run(["send-keys", "-t", target, command, "Enter"])
+        sent = _run(["send-keys", "-t", target, command, "Enter"], capture=True)
+        if sent.returncode != 0:
+            raise SessionError(f"Could not deliver input to background window '{label}': "
+                               f"{(sent.stderr or '').strip() or 'tmux failed'}")
     return label
 
 

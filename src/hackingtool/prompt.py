@@ -262,8 +262,12 @@ def _run_command(arg, ctx):
 
         cwd = tool._get_tool_dir() or str(config.get_tools_dir())
         command = arg if arg != first else None  # bare tool name → prepared shell only
-        resolved = session.run(_slug(tool.TITLE), cwd, command=command,
-                                banner=_usage_banner(tool))
+        try:
+            resolved = session.run(_slug(tool.TITLE), cwd, command=command,
+                                    banner=_usage_banner(tool))
+        except session.SessionError as exc:
+            cli.console.print(f"[red]{exc}[/red]")
+            return CONTINUE
         cli.console.print(
             f"[green]▶ started '{resolved}' in background — /attach to view[/green]")
         return CONTINUE

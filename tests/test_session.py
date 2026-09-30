@@ -127,7 +127,8 @@ def test_no_crash_when_tmux_binary_missing(monkeypatch):
         raise FileNotFoundError("tmux")
     monkeypatch.setattr(session.subprocess, "run", boom)
     monkeypatch.setattr(session, "windows", lambda: [])
-    # must not raise
+    # Read/kill operations remain tolerant; creation must report failure.
     session.kill("nmap")
     session.kill("all")
-    assert session.run("x", "/tmp") == "x"
+    with pytest.raises(session.SessionError, match="tmux executable not found"):
+        session.run("x", "/tmp")
