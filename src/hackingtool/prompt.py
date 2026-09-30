@@ -272,7 +272,14 @@ def _run_command(arg, ctx):
         cli.console.print(
             "[dim]tmux not available (or background off) — opening inline. "
             "See /config.[/dim]")
-    return Open("@" + first)
+    # Completion inserts full @titles. Preserve an exact inline catalog title
+    # before falling back to the first command token (arguments remain ignored).
+    name = arg.removeprefix("@")
+    tools_by_title, _ = _catalog()
+    for title in tools_by_title:
+        if title.casefold() == name.casefold():
+            return Open("@" + title)
+    return Open("@" + first.removeprefix("@"))
 
 
 def _message(ctx):

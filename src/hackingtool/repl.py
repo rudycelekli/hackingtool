@@ -86,7 +86,7 @@ class HTCompleter:
 
 
 def _resolve(name, tools_by_title):
-    """Case-insensitive lookup with a fuzzy fallback (difflib, 0.6 cutoff)."""
+    """Resolve exact titles and canonical binaries before fuzzy title lookup."""
     import difflib
 
     name = name.strip()
@@ -95,6 +95,13 @@ def _resolve(name, tools_by_title):
     lower = {t.lower(): tool for t, tool in tools_by_title.items()}
     if name.lower() in lower:
         return lower[name.lower()]
+    aliases = []
+    for tool in tools_by_title.values():
+        binary = (getattr(tool, "SYSTEM_PKGS", None) or {}).get("which")
+        if isinstance(binary, str) and binary.casefold() == name.casefold():
+            aliases.append(tool)
+    if aliases:
+        return aliases[0] if len(aliases) == 1 else None
     hit = difflib.get_close_matches(name.lower(), lower.keys(), n=1, cutoff=0.6)
     return lower[hit[0]] if hit else None
 
