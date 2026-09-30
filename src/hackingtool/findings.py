@@ -33,8 +33,10 @@ def parse_httpx(raw: str, ts: str) -> tuple[list[Finding], list[str]]:
             obj = json.loads(ln)
         except json.JSONDecodeError:
             continue  # skip malformed line, keep going
+        if not isinstance(obj, dict):
+            continue
         url = obj.get("url") or obj.get("input") or ""
-        if not url:
+        if not isinstance(url, str) or not url:
             continue
         details = {
             "status_code": obj.get("status_code"),
@@ -42,7 +44,9 @@ def parse_httpx(raw: str, ts: str) -> tuple[list[Finding], list[str]]:
             "tech": obj.get("tech"),
             "webserver": obj.get("webserver"),
         }
-        findings.append(Finding("service", url, obj.get("title") or url,
+        title = obj.get("title")
+        name = title if isinstance(title, str) and title else url
+        findings.append(Finding("service", url, name,
                                 "info", "httpx", details, ln, ts))
         urls.append(url)
     return findings, urls
@@ -58,13 +62,24 @@ def parse_nuclei(raw: str, ts: str) -> tuple[list[Finding], list[str]]:
             obj = json.loads(ln)
         except json.JSONDecodeError:
             continue
+        if not isinstance(obj, dict):
+            continue
         info = obj.get("info") or {}
+        if not isinstance(info, dict):
+            continue
         target = obj.get("matched-at") or obj.get("host") or ""
         tid = obj.get("template-id", "")
+        name = info.get("name") or tid
+        severity = info.get("severity")
+        if severity is None or severity == "":
+            severity = "unknown"
+        if (not isinstance(target, str) or not target
+                or not isinstance(name, str) or not isinstance(severity, str)):
+            continue
         details = {"template_id": tid, "matched_at": obj.get("matched-at"),
                    "type": obj.get("type")}
-        findings.append(Finding("vulnerability", target, info.get("name") or tid,
-                                info.get("severity") or "unknown", "nuclei",
+        findings.append(Finding("vulnerability", target, name,
+                                severity, "nuclei",
                                 details, ln, ts))
     return findings, []
 
