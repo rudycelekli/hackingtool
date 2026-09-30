@@ -171,7 +171,10 @@ def set_value(key: str, value: str) -> tuple[bool, str]:
         coerced = low
     cfg = load()
     cfg[resolved] = coerced
-    save(cfg)
+    try:
+        save(cfg)
+    except OSError as exc:
+        return False, f"Could not save configuration: {exc}"
     return True, f"set {resolved} = {coerced}"
 
 
@@ -210,17 +213,20 @@ def set_ai_key(value: str) -> tuple[bool, str]:
     value = (value or "").strip()
     if "\n" in value or "\r" in value:
         return False, "API key can't contain newlines."
-    env_file = USER_CONFIG_FILE.parent / ".env"
-    env_file.parent.mkdir(parents=True, exist_ok=True)
-    lines = env_file.read_text().splitlines() if env_file.exists() else _ENV_TEMPLATE.splitlines()
-    new_line = f"HACKINGTOOL_AI_KEY={value}" if value else "# HACKINGTOOL_AI_KEY=sk-ant-your-key-here"
-    for i, line in enumerate(lines):
-        if line.lstrip("# ").startswith("HACKINGTOOL_AI_KEY="):
-            lines[i] = new_line
-            break
-    else:
-        lines.append(new_line)
-    env_file.write_text("\n".join(lines) + "\n")
+    try:
+        env_file = USER_CONFIG_FILE.parent / ".env"
+        env_file.parent.mkdir(parents=True, exist_ok=True)
+        lines = env_file.read_text().splitlines() if env_file.exists() else _ENV_TEMPLATE.splitlines()
+        new_line = f"HACKINGTOOL_AI_KEY={value}" if value else "# HACKINGTOOL_AI_KEY=sk-ant-your-key-here"
+        for i, line in enumerate(lines):
+            if line.lstrip("# ").startswith("HACKINGTOOL_AI_KEY="):
+                lines[i] = new_line
+                break
+        else:
+            lines.append(new_line)
+        env_file.write_text("\n".join(lines) + "\n")
+    except (OSError, UnicodeError) as exc:
+        return False, f"Could not save API key: {type(exc).__name__}"
     try:
         env_file.chmod(0o600)                 # secrets file — owner-only
     except OSError:
