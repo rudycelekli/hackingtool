@@ -39,6 +39,7 @@ def run_pipeline(e: Engagement, pipeline_name: str = "recon") -> list[findings_m
             forward = []
             continue
         stdin = "\n".join(e.targets if step["input"] == "targets" else forward)
+        timed_out = False
         try:
             proc = subprocess.run([tool, *step["args"]], input=stdin,
                                   capture_output=True, text=True, timeout=STEP_TIMEOUT)
@@ -46,12 +47,23 @@ def run_pipeline(e: Engagement, pipeline_name: str = "recon") -> list[findings_m
             if proc.returncode != 0:
                 tail = (proc.stderr or "").strip().splitlines()[-3:]
                 e.log(f"{tool}: exit {proc.returncode}; stderr: {' | '.join(tail)}")
-        except (subprocess.TimeoutExpired, OSError) as exc:
+        except subprocess.TimeoutExpired as exc:
+            # TimeoutExpired output is bytes even when text=True on some Python
+            # versions. Keep completed records as evidence, never forward an
+            # incomplete stage's discoveries into subsequent tools.
+            raw = exc.stdout or ""
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8", errors="replace")
+            timed_out = True
+            e.log(f"error {tool}: timed out; preserving partial output")
+        except OSError as exc:
             e.log(f"error {tool}: {exc}")
             forward = []
             continue
         (e.workspace / step["output"]).write_text(raw)
         parsed, forward = findings_mod.PARSERS[step["parser"]](raw, ts)
+        if timed_out:
+            forward = []
         if e.scope_out:
             kept = []
             for line in forward:
