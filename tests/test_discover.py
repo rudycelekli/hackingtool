@@ -587,26 +587,26 @@ def test_save_repo_never_raises_on_unwritable_dir(tmp_path, monkeypatch):
     assert discover.save_repo(r, ["web"]) is None
 
 
-def test_save_repo_recovers_from_non_dict_top_level(tmp_path, monkeypatch):
+def test_save_repo_preserves_non_dict_top_level(tmp_path, monkeypatch):
     """found.yaml whose top level is a list must not raise AttributeError."""
     path = tmp_path / "found.yaml"
     path.write_text(yaml.safe_dump(["not", "a", "dict"]))
     monkeypatch.setattr(discover, "_found_path", lambda: path)
     r = discover.Repo(**_SAVE_REPO)
     saved = discover.save_repo(r, ["web"])
-    assert saved is not None
-    assert yaml.safe_load(saved.read_text())["tools"][0]["project_url"] == r.url
+    assert saved is None
+    assert yaml.safe_load(path.read_text()) == ["not", "a", "dict"]
 
 
-def test_save_repo_recovers_from_non_list_tools(tmp_path, monkeypatch):
+def test_save_repo_preserves_non_list_tools(tmp_path, monkeypatch):
     """A found.yaml with `tools: not-a-list` must not raise AttributeError."""
     path = tmp_path / "found.yaml"
     path.write_text(yaml.safe_dump({"category": {"title": "x"}, "tools": "not-a-list"}))
     monkeypatch.setattr(discover, "_found_path", lambda: path)
     r = discover.Repo(**_SAVE_REPO)
     saved = discover.save_repo(r, ["web"])
-    assert saved is not None
-    assert yaml.safe_load(saved.read_text())["tools"][0]["project_url"] == r.url
+    assert saved is None
+    assert yaml.safe_load(path.read_text())["tools"] == "not-a-list"
 
 
 def test_run_reports_save_failure_instead_of_claiming_success(capsys, monkeypatch, tmp_path):

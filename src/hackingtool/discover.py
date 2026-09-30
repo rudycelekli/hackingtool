@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -604,16 +605,25 @@ def save_repo(repo: Repo, tags: list[str]) -> Path | None:
 
     path = _found_path()
     try:
-        data = yaml.safe_load(path.read_text()) or {}
-    except (OSError, yaml.YAMLError):
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        data = {}
+    except (OSError, UnicodeError, yaml.YAMLError):
+        return None
+    if data is None:
         data = {}
     if not isinstance(data, dict):
-        data = {}
+        return None
+    if "category" in data and (
+        not isinstance(data["category"], dict)
+        or not isinstance(data["category"].get("title"), str)
+        or not data["category"]["title"].strip()
+    ):
+        return None
     data.setdefault("category", {"title": "Discovered tools"})
     tools = data.setdefault("tools", [])
     if not isinstance(tools, list):
-        tools = []
-        data["tools"] = tools
+        return None
 
     url = repo.url
     if any(isinstance(t, dict) and t.get("project_url") == url for t in tools):
@@ -627,11 +637,25 @@ def save_repo(repo: Repo, tags: list[str]) -> Path | None:
         "project_url": url,
         "discovered": True,
     })
+    temporary = None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(yaml.safe_dump(data, sort_keys=False))
-    except OSError:
+        # Publish only after the complete YAML has been written and closed.
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=path.name + "-", suffix=".tmp", delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(yaml.safe_dump(data, sort_keys=False))
+        os.replace(temporary, path)
+    except (OSError, UnicodeError, yaml.YAMLError):
         return None
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
     return path
 
 
@@ -741,8 +765,8 @@ def run(need: str, ctx=None) -> None:
                 return
             path = save_repo(repo, res.rewrite.tags)
             if path is None:
-                console.print("[warning]Could not save — check permissions on "
-                              "~/.hackingtool.[/warning]")
+                console.print("[warning]Could not save — check permissions and "
+                              "found.yaml format in ~/.hackingtool.[/warning]")
             else:
                 console.print(f"[success]Added.[/success] [dim]{path}[/dim]")
 
