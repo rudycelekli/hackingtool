@@ -3,6 +3,8 @@ import json
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
+from hackingtool.storage import write_json
+
 
 @dataclass
 class Finding:
@@ -73,8 +75,7 @@ PARSERS = {"subfinder": parse_subfinder, "httpx": parse_httpx, "nuclei": parse_n
 
 
 def save_findings(path: Path, findings: list[Finding]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps([asdict(f) for f in findings], indent=2))
+    write_json(path, [asdict(f) for f in findings])
 
 
 def load_findings(path: Path) -> list[Finding]:

@@ -6,6 +6,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 from hackingtool.constants import USER_CONFIG_DIR
+from hackingtool.storage import write_json
 
 ENGAGEMENTS_ROOT = USER_CONFIG_DIR / "engagements"
 
@@ -66,9 +67,7 @@ class Engagement:
         self.save()
 
     def save(self) -> None:
-        self.workspace.mkdir(parents=True, exist_ok=True)
-        (self.workspace / "engagement.json").write_text(
-            json.dumps(asdict(self), indent=2))
+        write_json(self.workspace / "engagement.json", asdict(self))
 
 
 def load(name: str) -> Engagement | None:

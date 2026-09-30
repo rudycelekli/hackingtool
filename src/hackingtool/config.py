@@ -8,6 +8,8 @@ from hackingtool.constants import (
     USER_CONFIG_FILE, USER_TOOLS_DIR, DEFAULT_CONFIG, THEME_CHOICES,
 )
 
+from hackingtool.storage import write_json
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,8 +42,7 @@ def load() -> dict[str, Any]:
 
 def save(cfg: dict[str, Any]) -> None:
     """Write config to disk, creating parent directories if needed."""
-    USER_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    USER_CONFIG_FILE.write_text(json.dumps(cfg, indent=2, sort_keys=True))
+    write_json(USER_CONFIG_FILE, cfg, sort_keys=True)
 
 
 _ENV_TEMPLATE = """\
