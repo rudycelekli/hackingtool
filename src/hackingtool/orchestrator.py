@@ -38,6 +38,9 @@ def run_pipeline(e: Engagement, pipeline_name: str = "recon") -> list[findings_m
             e.log(f"skip {tool}: not installed (install it from the menu)")
             forward = []
             continue
+        if step["input"] == "previous" and not forward:
+            e.log(f"skip {tool}: no previous output to consume")
+            continue
         stdin = "\n".join(e.targets if step["input"] == "targets" else forward)
         try:
             proc = subprocess.run([tool, *step["args"]], input=stdin,
