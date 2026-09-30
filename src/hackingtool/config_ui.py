@@ -12,6 +12,9 @@ gates on ``prompt._use_pt()`` and falls back to the read-only table.
 """
 from __future__ import annotations
 
+import asyncio
+import threading
+
 from hackingtool import config
 
 _PAGE = 5  # PgUp/PgDn jump size
@@ -62,7 +65,7 @@ def open_editor() -> None:
     from prompt_toolkit.styles import Style
     from prompt_toolkit.widgets import TextArea
 
-    state = {"rows": _rows(), "sel": 0, "editing": False, "secret": False, "msg": ""}
+    state = {"rows": _rows(), "sel": 0, "editing": False, "secret": False, "msg": "", "testing": False}
 
     def _cur() -> dict:
         return state["rows"][state["sel"]]
@@ -207,9 +210,34 @@ def open_editor() -> None:
     @kb.add("t", filter=nav)
     def _(e):
         from hackingtool import ai_recommend
-        ok, detail = ai_recommend.test_connection()   # blocks briefly; manual action
-        mark = "✓ " if ok else "✗ "
-        state["msg"] = mark + (detail[:70] + "…" if len(detail) > 70 else detail)
+        if state["testing"]:
+            return
+        state["testing"] = True
+        state["msg"] = "Testing AI connection…"
+        loop = asyncio.get_running_loop()
+        app = e.app
+
+        def finish(ok, detail):
+            if not app.is_running:
+                return
+            state["testing"] = False
+            mark = "✓ " if ok else "✗ "
+            state["msg"] = mark + (detail[:70] + "…" if len(detail) > 70 else detail)
+            app.invalidate()
+
+        def probe():
+            try:
+                ok, detail = ai_recommend.test_connection()
+            except Exception:
+                ok, detail = False, "AI connection test failed"
+            try:
+                # Only the application thread mutates UI state. A daemon worker
+                # lets Escape/Ctrl-C close settings without waiting for network IO.
+                loop.call_soon_threadsafe(finish, ok, detail)
+            except RuntimeError:
+                pass  # The settings application already closed its event loop.
+
+        threading.Thread(target=probe, daemon=True).start()
 
     @kb.add("escape", filter=nav, eager=True)
     @kb.add("c-c", filter=nav)
