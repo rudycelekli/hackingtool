@@ -58,10 +58,11 @@ def _configured_theme() -> str:
     config-module import cycle). Unknown/missing → 'magenta'."""
     try:
         import json
-        name = json.loads(USER_CONFIG_FILE.read_text()).get("theme")
+        payload = json.loads(USER_CONFIG_FILE.read_text())
+        name = payload.get("theme") if isinstance(payload, dict) else None
     except (OSError, ValueError):
         name = None
-    return name if name in _PALETTES else "magenta"
+    return name if isinstance(name, str) and name in _PALETTES else "magenta"
 
 
 # THEME_HEX drives the prompt_toolkit REPL surface (prompt + rule); the rich

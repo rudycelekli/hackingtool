@@ -32,8 +32,10 @@ def load() -> dict[str, Any]:
     if USER_CONFIG_FILE.exists():
         try:
             on_disk = json.loads(USER_CONFIG_FILE.read_text())
+            if not isinstance(on_disk, dict):
+                raise ValueError("config must contain a JSON object")
             return {**DEFAULT_CONFIG, **on_disk}
-        except (json.JSONDecodeError, OSError) as exc:
+        except (ValueError, OSError) as exc:
             logger.warning("Config file unreadable (%s), using defaults.", exc)
     return dict(DEFAULT_CONFIG)
 
