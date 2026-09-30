@@ -49,13 +49,20 @@ def _parse_tags(reply: str | None) -> list[str]:
     return [t for t in arr if isinstance(t, str) and t in TAXONOMY]
 
 
+def _response_text(value) -> str:
+    """Require usable text before handing a provider response to callers."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("model returned no usable text")
+    return value
+
+
 def _ollama(prompt: str) -> str | None:
     payload = json.dumps({"model": config.ai_model(), "prompt": prompt, "stream": False}).encode()
     req = urllib.request.Request(_OLLAMA_URL, data=payload,
                                  headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.loads(resp.read()).get("response")
+            return _response_text(json.loads(resp.read()).get("response"))
     except (urllib.error.URLError, OSError, ValueError, AttributeError):
         return None
 
@@ -80,8 +87,8 @@ def _byo_key(prompt: str) -> str | None:
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             data = json.loads(resp.read())
-        return data["choices"][0]["message"]["content"]
-    except (urllib.error.URLError, OSError, ValueError, KeyError, IndexError):
+        return _response_text(data["choices"][0]["message"]["content"])
+    except (urllib.error.URLError, OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
         return None
 
 
@@ -123,13 +130,13 @@ def _probe_byo() -> tuple[bool, str]:
         "Content-Type": "application/json", "Authorization": f"Bearer {key}"})
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            reply = json.loads(resp.read())["choices"][0]["message"]["content"].strip()
+            reply = _response_text(json.loads(resp.read())["choices"][0]["message"]["content"]).strip()
         return True, f"{model} replied {reply!r}"
     except urllib.error.HTTPError as e:
         return False, f"HTTP {e.code} from {url} — {e.read().decode(errors='replace')[:200]}"
     except (urllib.error.URLError, OSError) as e:
         return False, f"cannot reach {url} — {e}"
-    except (ValueError, KeyError, IndexError) as e:
+    except (ValueError, KeyError, IndexError, TypeError, AttributeError) as e:
         return False, f"unexpected response from {url} — {e}"
 
 
@@ -139,7 +146,7 @@ def _probe_ollama() -> tuple[bool, str]:
     req = urllib.request.Request(_OLLAMA_URL, data=payload, headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            reply = (json.loads(resp.read()).get("response") or "").strip()
+            reply = _response_text(json.loads(resp.read()).get("response")).strip()
         return True, f"ollama {model} replied {reply!r}"
     except urllib.error.HTTPError as e:
         return False, (f"HTTP {e.code} from Ollama — is model '{model}' pulled? "
