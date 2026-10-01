@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import pytest
 from hackingtool import engagement, orchestrator
 from hackingtool.findings import load_findings
 
@@ -48,3 +49,16 @@ def test_timeout_partial_discoveries_are_not_forwarded(tmp_path, monkeypatch):
     # A dependency-aware runner may skip this consumer entirely. If invoked,
     # it must not receive incomplete-stage discoveries.
     assert not any(received)
+
+
+@pytest.mark.parametrize('parser', ['subfinder', 'httpx', 'nuclei'])
+def test_real_local_timeout_before_output_is_safe_for_every_parser(tmp_path, monkeypatch, parser):
+    output = f'raw/{parser}.txt'
+    e = setup_pipeline(tmp_path, monkeypatch, [step(
+        tool=sys.executable, args=['-c', 'import time; time.sleep(5)'],
+        output=output, parser=parser,
+    )])
+    monkeypatch.setattr(orchestrator, 'STEP_TIMEOUT', 0.05)
+    assert orchestrator.run_pipeline(e) == []
+    assert (e.workspace / output).read_bytes() == b''
+    assert load_findings(e.findings_file) == []
