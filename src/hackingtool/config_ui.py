@@ -65,7 +65,9 @@ def open_editor() -> None:
     from prompt_toolkit.styles import Style
     from prompt_toolkit.widgets import TextArea
 
-    state = {"rows": _rows(), "sel": 0, "editing": False, "secret": False, "msg": "", "testing": False}
+    state = {"rows": _rows(), "sel": 0, "editing": False, "secret": False, "msg": ""}
+
+    testing = threading.Event()
 
     def _cur() -> dict:
         return state["rows"][state["sel"]]
@@ -210,17 +212,17 @@ def open_editor() -> None:
     @kb.add("t", filter=nav)
     def _(e):
         from hackingtool import ai_recommend
-        if state["testing"]:
+        if testing.is_set():
             return
-        state["testing"] = True
+        testing.set()
         state["msg"] = "Testing AI connection…"
         loop = asyncio.get_running_loop()
         app = e.app
 
         def finish(ok, detail):
+            testing.clear()
             if not app.is_running:
                 return
-            state["testing"] = False
             mark = "✓ " if ok else "✗ "
             state["msg"] = mark + (detail[:70] + "…" if len(detail) > 70 else detail)
             app.invalidate()
@@ -234,8 +236,10 @@ def open_editor() -> None:
                 # Only the application thread mutates UI state. A daemon worker
                 # lets Escape/Ctrl-C close settings without waiting for network IO.
                 loop.call_soon_threadsafe(finish, ok, detail)
-            except RuntimeError:
-                pass  # The settings application already closed its event loop.
+            except Exception:
+                # Scheduling can fail while the editor is still open. Release
+                # only the thread-safe guard; UI text stays on the app thread.
+                testing.clear()
 
         threading.Thread(target=probe, daemon=True).start()
 
