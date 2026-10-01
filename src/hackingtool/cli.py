@@ -750,7 +750,11 @@ def _run_headless(args) -> None:
                         "run only against systems you own or are explicitly permitted to test.",
                         border_style="yellow"))
     targets = _load_targets(args.targets) if args.targets else None
-    e = engagement.get_or_create(args.engagement, targets)
+    try:
+        e = engagement.get_or_create(args.engagement, targets)
+    except OSError as exc:
+        console.print(f"[bold red]Could not open engagement workspace:[/bold red] {exc}")
+        raise SystemExit(1) from None
 
     for t in e.targets:
         if not e.in_scope(t):
